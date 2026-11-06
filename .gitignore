@@ -1,0 +1,30 @@
+# 固件与设备数据（涉及版权/隐私，不入库）
+firmware/*
+!firmware/README.md
+ref/
+*.bin
+!data/*.bin
+
+# 构建产物
+dist/
+build/
+*.spec
+__pycache__/
+*.py[cod]
+
+# 运行/测试产物
+*.log
+cycle_*.png
+shot*.png
+device_flash*.bin
+bl_proto_space.bin
+flash_selftest.bin
+space*.bin
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+
+# 临时文件
+*.tmp

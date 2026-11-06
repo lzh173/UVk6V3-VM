@@ -1,0 +1,11 @@
+# 虚拟机 / 分析工具
+unicorn>=2.1.0
+capstone>=5.0.0
+loguru>=0.7.0
+
+# 显示 / 串口
+pillow>=10.0.0
+pyserial>=3.5
+
+# RomDumper 打包（可选）
+# pyinstaller>=6.0
