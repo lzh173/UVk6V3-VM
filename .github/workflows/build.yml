@@ -150,11 +150,17 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
-      - name: 整理成扁平目录
+      - name: 整理并重命名（避免两种打包器同名覆盖）
         run: |
           mkdir -p out
-          find artifacts -name "*.exe" -exec cp {} out/ \;
+          for f in artifacts/*/*.exe; do
+            art=$(basename "$(dirname "$f")")     # pyinstaller-romdumper
+            backend=${art%%-*}                    # pyinstaller / nuitka
+            base=$(basename "$f" .exe)            # RomDumper
+            cp "$f" "out/${base}-${backend}.exe"
+          done
           ls -lh out
+          test $(ls out/*.exe | wc -l) -eq 6 || { echo "产物数量不是 6 个"; exit 1; }
       - uses: softprops/action-gh-release@v2
         with:
           files: out/*
