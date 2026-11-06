@@ -65,6 +65,17 @@ M32 = 0xFFFFFFFF
 # --------------------------------------------------------------------------
 # 镜像读取 (含错页修正)
 # --------------------------------------------------------------------------
+def _utf8_stdio():
+    """Windows 控制台默认不是 UTF-8，打印中文会抛 UnicodeEncodeError。
+    这里把 stdout/stderr 强制成 UTF-8（打包成 exe 后同样有效）。"""
+    import sys
+    for s in (sys.stdout, sys.stderr):
+        try:
+            s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+
 class Firmware:
     def __init__(self, path):
         with open(path, "rb") as f:
@@ -221,6 +232,7 @@ def fmt_pin(pin):
 
 
 def main():
+    _utf8_stdio()
     ap = argparse.ArgumentParser(description="泉盛 UV-K6 V3 PIN / AUTH 注册机")
     ap.add_argument("--firmware", default=default_firmware())
     ap.add_argument("--uid", nargs="+", help="3 个 32-bit UID word (hex)")

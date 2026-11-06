@@ -28,6 +28,17 @@ SYNC = b"\xAB\xCD"
 FOOTER = b"\xDC\xBA"
 
 
+def _utf8_stdio():
+    """Windows 控制台默认不是 UTF-8，打印中文会抛 UnicodeEncodeError。
+    这里把 stdout/stderr 强制成 UTF-8（打包成 exe 后同样有效）。"""
+    import sys
+    for s in (sys.stdout, sys.stderr):
+        try:
+            s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+
 def _mk_table():
     t = []
     for i in range(256):
@@ -430,6 +441,7 @@ def selftest():
 
 
 def main():
+    _utf8_stdio()
     ap = argparse.ArgumentParser()
     ap.add_argument("-p", "--port", type=int, default=8801)
     ap.add_argument("-H", "--host", default="127.0.0.1")

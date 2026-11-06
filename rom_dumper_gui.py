@@ -59,6 +59,17 @@ SPI_CHUNK = 120             # 0x051F 设备侧硬上限（size > 120 会被截�
 FLASH_4M = 0x400000
 
 
+def _utf8_stdio():
+    """Windows 控制台默认不是 UTF-8，打印中文会抛 UnicodeEncodeError。
+    这里把 stdout/stderr 强制成 UTF-8（打包成 exe 后同样有效）。"""
+    import sys
+    for s in (sys.stdout, sys.stderr):
+        try:
+            s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+
 def _mk_table():
     t = []
     for i in range(256):
@@ -1210,6 +1221,7 @@ def _attach_console():
 
 
 def main():
+    _utf8_stdio()
     _enable_dpi_awareness()
     cli_mode = ("--selftest" in sys.argv) or ("--port" in sys.argv and "--out" in sys.argv)
     if cli_mode:

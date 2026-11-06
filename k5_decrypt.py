@@ -30,6 +30,17 @@ XOR_KEY = bytes.fromhex(
     "af30f42c77b27dbb3f29285722d6928b")
 
 
+def _utf8_stdio():
+    """Windows 控制台默认不是 UTF-8，打印中文会抛 UnicodeEncodeError。
+    这里把 stdout/stderr 强制成 UTF-8（打包成 exe 后同样有效）。"""
+    import sys
+    for s in (sys.stdout, sys.stderr):
+        try:
+            s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+
 def crc16_ccitt(data):
     crc = 0
     for b in data:
@@ -61,6 +72,7 @@ def decrypt(raw):
 
 
 def main():
+    _utf8_stdio()
     if len(sys.argv) < 2:
         raise SystemExit(__doc__)
     src = sys.argv[1]

@@ -66,6 +66,17 @@ except Exception:                                   # pragma: no cover
     _HAS_LOGURU = False
 
 
+def _utf8_stdio():
+    """Windows 控制台默认不是 UTF-8，打印中文会抛 UnicodeEncodeError。
+    这里把 stdout/stderr 强制成 UTF-8（打包成 exe 后同样有效）。"""
+    import sys
+    for s in (sys.stdout, sys.stderr):
+        try:
+            s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+
 def _p(msg, *args, level="INFO", **kw):
     """统一日志出口: 保留 printf 风格，交给 loguru 加时间戳/等级/颜色"""
     try:
@@ -2072,6 +2083,7 @@ poll();
 
 
 def main():
+    _utf8_stdio()
     ap = argparse.ArgumentParser()
     ap.add_argument("--firmware", default=default_firmware())
     ap.add_argument("--uid", nargs=3, default=["1A2B3C4D", "5E6F7081", "92A3B4C5"])
