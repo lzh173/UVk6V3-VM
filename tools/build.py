@@ -32,9 +32,15 @@ TOOLS = {
         desc="PC 侧客户端（握手/读写/刷机/自检）",
     ),
     "mcuvm": dict(
-        script="mcu_vm.py", name="MCUVM", windowed=True,
+        script="mcu_vm.py", name="MCUVM", windowed=False,   # 保留控制台: --text/--help/日志要能看到
         hidden=["serial.tools.list_ports"],
-        packages=["unicorn", "capstone"],
+        # 只收动态库（unicorn/capstone 的 .dll）；--collect-all 会把
+        # 48 MB 的 unicorn.lib 静态库卷进来，onefile 解压直接失败
+        binaries=["unicorn", "capstone"],
+        # unicorn 在运行时才 import 架构模块（unicorn.unicorn_py3.arch.*），
+        # 必须显式收集子模块，否则报 ModuleNotFoundError
+        submodules=["unicorn", "capstone"],
+        excludes=["IPython", "pytest", "matplotlib", "numpy", "PIL.ImageQt"],
         desc="固件虚拟机（面板 / 终端 / PNG）",
     ),
 }
@@ -64,8 +70,12 @@ def build_pyinstaller(tool):
         args.append("-w")
     for h in cfg.get("hidden", []):
         args += ["--hidden-import", h]
-    for p in cfg.get("packages", []):
-        args += ["--collect-all", p]
+    for p in cfg.get("binaries", []):
+        args += ["--collect-binaries", p]
+    for p in cfg.get("submodules", []):
+        args += ["--collect-submodules", p]
+    for m in cfg.get("excludes", []):
+        args += ["--exclude-module", m]
     args.append(os.path.join(ROOT, cfg["script"]))
     run(args)
 
@@ -83,7 +93,8 @@ def build_nuitka(tool):
             "--company-name=firmware_analysis",
             "--product-name=" + cfg["name"],
             "--file-version=0.1.0", "--product-version=0.1.0"]
-    for p in cfg.get("packages", []):
+    for p in cfg.get("binaries", []):
+        # Nuitka 自己会跟着 import 收动态库，这里只显式带上包
         args.append("--include-package=" + p)
     for h in cfg.get("hidden", []):
         args.append("--include-module=" + h)
