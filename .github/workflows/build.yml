@@ -52,6 +52,8 @@ jobs:
     name: pyinstaller / ${{ matrix.tool }}
     runs-on: windows-latest
     needs: smoke
+    env:
+      BACKEND: pyinstaller
     strategy:
       fail-fast: false
       matrix:
@@ -69,8 +71,6 @@ jobs:
           pip install pyinstaller
       - name: 打包
         run: python tools/build.py --backend pyinstaller --tool ${{ matrix.tool }}
-        env:
-          BACKEND: pyinstaller
       - name: 冒烟测试（必须成功，否则构建算失败）
         shell: pwsh
         run: |
@@ -99,6 +99,8 @@ jobs:
       (github.event_name == 'workflow_dispatch' && inputs.nuitka)
     runs-on: windows-latest
     needs: smoke
+    env:
+      BACKEND: nuitka
     strategy:
       fail-fast: false
       matrix:
@@ -125,8 +127,6 @@ jobs:
       - name: 打包（Nuitka 很慢，耐心等）
         run: python tools/build.py --backend nuitka --tool ${{ matrix.tool }}
         timeout-minutes: 90
-        env:
-          BACKEND: nuitka
       - name: 冒烟测试（必须成功，否则构建算失败）
         shell: pwsh
         run: |
