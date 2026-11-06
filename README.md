@@ -55,6 +55,31 @@ python pin_keygen.py                          # PIN / AUTH 注册机
 dist/RomDumper.exe --port COM15 --out rom.bin --size 4M   # 导出整片 Flash
 ```
 
+## 构建与 CI
+
+`.github/workflows/build.yml` 一次产出 **6 个可执行文件**（3 个工具 × 2 种打包器）：
+
+| 工具 | PyInstaller 工件 | Nuitka 工件 |
+|---|---|---|
+| RomDumper（ROM 导出 GUI） | `pyinstaller-romdumper` | `nuitka-romdumper` |
+| K5Tool（PC 客户端） | `pyinstaller-k5tool` | `nuitka-k5tool` |
+| MCUVM（固件虚拟机） | `pyinstaller-mcuvm` | `nuitka-mcuvm` |
+
+- **PyInstaller**：每次 push / PR 都跑（几分钟出结果）
+- **Nuitka**：单个数分钟到十几分钟，只在 **打 tag** 或 **手动触发** 时跑
+- **打 tag** 时自动把 6 个 exe 附到 GitHub Release
+
+本地打包：
+
+```bash
+pip install pyinstaller                 # 或者：pip install nuitka ordered-set zstandard
+python tools/build.py --list            # 看有哪些工具
+python tools/build.py --backend pyinstaller              # 3 个全打
+python tools/build.py --backend nuitka --tool k5tool     # 只打一个
+```
+
+产物分别落在 `dist/pyinstaller/` 和 `dist/nuitka/`，互不覆盖。
+
 ## 目录结构
 
 ```
@@ -66,7 +91,7 @@ pin_keygen.py        PIN / AUTH 注册机
 rom_dumper_gui.py    整片 ROM 导出工具（Tk GUI，可 PyInstaller 打包）
 sniff_param.py       协议嗅探：伪装成 bootloader 抓真实写频器的参数
 tests/               协议、刷机闭环、大镜像刷机等回归测试
-tools/               截图、演示、打包脚本
+tools/               build.py（统一打包）、截图、演示脚本
 docs/                逆向分析报告（ANALYSIS.md）与复核记录
 data/                合成的最小可用设置块（非真机数据）
 assets/              截图

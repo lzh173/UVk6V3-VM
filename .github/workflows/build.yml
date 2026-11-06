@@ -1,0 +1,161 @@
+name: build
+
+"on":
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      nuitka:
+        description: "同时用 Nuitka 打包（很慢，约 30-60 分钟）"
+        type: boolean
+        default: true
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"
+  PYTHONIOENCODING: utf-8
+
+jobs:
+  # ---------------------------------------------------------------- 语法/导入检查
+  smoke:
+    name: smoke (语法 + 导入)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: 语法检查
+        run: |
+          python -c "import ast,io,glob; [ast.parse(io.open(f,encoding='utf-8').read()) for f in glob.glob('*.py')+glob.glob('tests/*.py')+glob.glob('tools/*.py')]; print('syntax OK')"
+      - name: 命令行自检
+        run: |
+          python mcu_vm.py --help
+          python k5tool.py --help
+          python k5_decrypt.py
+        continue-on-error: true
+      - name: 打包脚本自检
+        run: python tools/build.py --list
+
+  # ---------------------------------------------------------------- PyInstaller x3
+  pyinstaller:
+    name: pyinstaller / ${{ matrix.tool }}
+    runs-on: windows-latest
+    needs: smoke
+    strategy:
+      fail-fast: false
+      matrix:
+        tool: [romdumper, k5tool, mcuvm]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+      - name: 打包
+        run: python tools/build.py --backend pyinstaller --tool ${{ matrix.tool }}
+        env:
+          BACKEND: pyinstaller
+      - name: 冒烟测试（--help / --selftest）
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem (Join-Path 'dist' $env:BACKEND) -Filter *.exe | Select-Object -First 1
+          Write-Host "产物: $($exe.Name) ($([math]::Round($exe.Length/1MB,1)) MB)"
+          & $exe.FullName --help
+          exit 0
+        continue-on-error: true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pyinstaller-${{ matrix.tool }}
+          path: dist/pyinstaller/*.exe
+          if-no-files-found: error
+          retention-days: 30
+
+  # ---------------------------------------------------------------- Nuitka x3
+  nuitka:
+    name: nuitka / ${{ matrix.tool }}
+    # 只在 tag / 手动触发时跑（单次打包十几分钟，不适合每次 push）
+    if: >
+      startsWith(github.ref, 'refs/tags/') ||
+      (github.event_name == 'workflow_dispatch' && inputs.nuitka)
+    runs-on: windows-latest
+    needs: smoke
+    strategy:
+      fail-fast: false
+      matrix:
+        tool: [romdumper, k5tool, mcuvm]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install nuitka ordered-set zstandard
+      - name: 检查 MSVC
+        shell: pwsh
+        run: |
+          if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
+            Write-Host "cl.exe 不在 PATH，Nuitka 会自动寻找 MSVC/下载 MinGW"
+          } else {
+            cl.exe 2>&1 | Select-Object -First 1
+          }
+      - name: 打包（Nuitka 很慢，耐心等）
+        run: python tools/build.py --backend nuitka --tool ${{ matrix.tool }}
+        timeout-minutes: 90
+        env:
+          BACKEND: nuitka
+      - name: 冒烟测试
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem (Join-Path 'dist' $env:BACKEND) -Filter *.exe | Select-Object -First 1
+          Write-Host "产物: $($exe.Name) ($([math]::Round($exe.Length/1MB,1)) MB)"
+          & $exe.FullName --help
+          exit 0
+        continue-on-error: true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nuitka-${{ matrix.tool }}
+          path: dist/nuitka/*.exe
+          if-no-files-found: error
+          retention-days: 30
+
+  # ---------------------------------------------------------------- tag 时发 Release
+  release:
+    name: release
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    needs: [pyinstaller, nuitka]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: 整理成扁平目录
+        run: |
+          mkdir -p out
+          find artifacts -name "*.exe" -exec cp {} out/ \;
+          ls -lh out
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: out/*
+          generate_release_notes: true
