@@ -71,14 +71,18 @@ jobs:
         run: python tools/build.py --backend pyinstaller --tool ${{ matrix.tool }}
         env:
           BACKEND: pyinstaller
-      - name: 冒烟测试（--help / --selftest）
+      - name: 冒烟测试（必须成功，否则构建算失败）
         shell: pwsh
         run: |
           $exe = Get-ChildItem (Join-Path 'dist' $env:BACKEND) -Filter *.exe | Select-Object -First 1
           Write-Host "产物: $($exe.Name) ($([math]::Round($exe.Length/1MB,1)) MB)"
-          & $exe.FullName --help
-          exit 0
-        continue-on-error: true
+          $arg = if ('${{ matrix.tool }}' -eq 'romdumper') { '--selftest' } else { '--help' }
+          $p = Start-Process -FilePath $exe.FullName -ArgumentList $arg -Wait -PassThru -NoNewWindow
+          if ($p.ExitCode -ne 0) {
+            Write-Host "::error::$($exe.Name) $arg 退出码 $($p.ExitCode)"
+            exit 1
+          }
+          Write-Host "OK: $arg 退出码 0"
       - uses: actions/upload-artifact@v4
         with:
           name: pyinstaller-${{ matrix.tool }}
@@ -123,14 +127,18 @@ jobs:
         timeout-minutes: 90
         env:
           BACKEND: nuitka
-      - name: 冒烟测试
+      - name: 冒烟测试（必须成功，否则构建算失败）
         shell: pwsh
         run: |
           $exe = Get-ChildItem (Join-Path 'dist' $env:BACKEND) -Filter *.exe | Select-Object -First 1
           Write-Host "产物: $($exe.Name) ($([math]::Round($exe.Length/1MB,1)) MB)"
-          & $exe.FullName --help
-          exit 0
-        continue-on-error: true
+          $arg = if ('${{ matrix.tool }}' -eq 'romdumper') { '--selftest' } else { '--help' }
+          $p = Start-Process -FilePath $exe.FullName -ArgumentList $arg -Wait -PassThru -NoNewWindow
+          if ($p.ExitCode -ne 0) {
+            Write-Host "::error::$($exe.Name) $arg 退出码 $($p.ExitCode)"
+            exit 1
+          }
+          Write-Host "OK: $arg 退出码 0"
       - uses: actions/upload-artifact@v4
         with:
           name: nuitka-${{ matrix.tool }}

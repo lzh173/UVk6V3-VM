@@ -40,6 +40,9 @@ TOOLS = {
         # unicorn 在运行时才 import 架构模块（unicorn.unicorn_py3.arch.*），
         # 必须显式收集子模块，否则报 ModuleNotFoundError
         submodules=["unicorn", "capstone"],
+        # Nuitka 的 --include-package 只带 Python 代码，不带 DLL，
+        # 必须显式声明；(包名, 子路径) 会在运行时展开成真实路径
+        native=[("unicorn", "lib/unicorn.dll"), ("capstone", "lib/capstone.dll")],
         excludes=["IPython", "pytest", "matplotlib", "numpy", "PIL.ImageQt"],
         desc="固件虚拟机（面板 / 终端 / PNG）",
     ),
@@ -51,6 +54,23 @@ def run(cmd):
     r = subprocess.run(cmd, cwd=ROOT)
     if r.returncode != 0:
         raise SystemExit("打包失败: %s" % cmd[0])
+
+
+def native_paths(tool):
+    """把 native=[(包名, 子路径)] 展开成 [(绝对路径, 包内目标路径)]"""
+    import importlib
+    out = []
+    for pkg, rel in TOOLS[tool].get("native", []):
+        try:
+            mod = importlib.import_module(pkg)
+        except ImportError:
+            continue
+        src = os.path.join(os.path.dirname(mod.__file__), *rel.split("/"))
+        if os.path.isfile(src):
+            out.append((src, pkg + "/" + rel))
+        else:
+            print("  [!] 找不到原生库:", src)
+    return out
 
 
 def out_dir(backend):
@@ -98,6 +118,8 @@ def build_nuitka(tool):
         args.append("--include-package=" + p)
     for h in cfg.get("hidden", []):
         args.append("--include-module=" + h)
+    for src, dst in native_paths(tool):
+        args.append("--include-data-file=%s=%s" % (src, dst))
     args.append(os.path.join(ROOT, cfg["script"]))
     run(args)
 
