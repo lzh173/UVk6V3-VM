@@ -1,5 +1,9 @@
 # 手持对讲机固件虚拟机（泉盛 UV-K5 / UV-K6 系列）
 
+[![build](https://github.com/lzh173/UVk6V3-VM/actions/workflows/build.yml/badge.svg)](https://github.com/lzh173/UVk6V3-VM/actions/workflows/build.yml)
+
+仓库：<https://github.com/lzh173/UVk6V3-VM>
+
 用 [Unicorn](https://github.com/unicorn-engine/unicorn) 在 PC 上跑手持对讲机的 ARM Cortex-M0+ 固件：
 外设寄存器级建模、128×64 点阵屏、仿真键盘、串口刷机协议、写频协议，全部用 Python 实现。
 
@@ -125,4 +129,6 @@ ref/                 第三方固件源码参考（已 gitignore）
 
 ## 许可
 
-MIT，见 [LICENSE](LICENSE)。仓库不包含任何厂商标识、固件二进制或设备校准数据。
+[AGPL-3.0](LICENSE)。仓库不包含任何厂商标识、固件二进制或设备校准数据。
+
+> 使用本项目的衍生作品需同样以 AGPL-3.0 开源（含网络服务场景）。
